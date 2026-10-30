@@ -1,0 +1,52 @@
+# Integración continua del laboratorio de la Unidad 5 (proyecto de pedidos, independiente del PIA).
+# Este archivo funciona cuando la carpeta Proyecto_Laboratorio_U5 es la RAÍZ del repositorio de GitHub.
+# Cualquier paso que falle (Ruff, una prueba, cobertura < 80 % o la compilación) deja la ejecución en rojo.
+name: CI Business Logic
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: 1. Instalar dependencias
+        run: python -m pip install -r requirements.txt
+
+      - name: 2. Ruff
+        run: python -m ruff check src tests
+
+      - name: Preparar directorio de reportes
+        run: mkdir -p reportes
+
+      - name: 3-4. Pruebas automatizadas y cobertura mínima del 80 %
+        run: >-
+          python -m pytest -v --cov=src --cov-report=term-missing --cov-report=html
+          --cov-report=xml --cov-fail-under=80 --junitxml=reportes/pytest-junit.xml
+
+      - name: 5. Comprobación de construcción (compilación de src)
+        run: python -m compileall -q src
+
+      - name: Publicar reportes (también si algo falla)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reportes-laboratorio-u5
+          path: |
+            htmlcov/
+            coverage.xml
+            reportes/pytest-junit.xml
+          if-no-files-found: warn
